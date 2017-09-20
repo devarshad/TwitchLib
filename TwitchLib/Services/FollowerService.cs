@@ -3,10 +3,8 @@ using System.Collections.Generic;
 using System.Net;
 using System.Timers;
 using TwitchLib.Exceptions.Services;
-using TwitchLib.Exceptions.API;
 using TwitchLib.Events.Services.FollowerService;
 using System.Threading.Tasks;
-using System.Linq;
 
 namespace TwitchLib.Services
 {
@@ -22,7 +20,7 @@ namespace TwitchLib.Services
         /// <summary>Property representing whether channeldata is a channel name or channel id.</summary>
         public Enums.ChannelIdentifierType ChannelIdentifier { get; protected set; }
         /// <summary>Property representing application client Id, also updates it in TwitchApi.</summary>
-        public string ClientId { get { return _clientId; } set { _clientId = value; TwitchAPI.Settings.ClientId = value; } }
+        public string ClientId { get { return _clientId; } set { _clientId = value; twitchAPI.ClientId = value; } }
         /// <summary>Property representing the number of followers to compare a fresh query against for new followers. Default: 1000.</summary>
         public int CacheSize { get; set; } = 1000;
         /// <summary>Property representing number of recent followers that service should request. Recommended: 25, increase for larger channels. MAX: 100, MINIMUM: 1</summary>
@@ -32,14 +30,16 @@ namespace TwitchLib.Services
         public List<Interfaces.IFollow> ActiveCache { get; set; } = new List<Interfaces.IFollow>();
         /// <summary>Property representing interval between Twitch Api calls, in seconds. Recommended: 60</summary>
         public int CheckIntervalSeconds { get { return _checkIntervalSeconds; } set { _checkIntervalSeconds = value; _followerServiceTimer.Interval = value * 1000; } }
+        private readonly ITwitchAPI twitchAPI;
 
         /// <summary>Service constructor.</summary>
         /// <exception cref="BadResourceException">If channel is invalid, an InvalidChannelException will be thrown.</exception>
         /// <param name="checkIntervalSeconds">Param representing number of seconds between calls to Twitch Api.</param>
         /// <param name="queryCount">Number of recent followers service should request from Twitch Api. Max: 100, Min: 1</param>
         /// <param name="clientId">Optional param representing Twitch Api-required application client id, not required if already set.</param>
-        public FollowerService(int checkIntervalSeconds = 60, int queryCount = 25, string clientId = "")
+        public FollowerService(ITwitchAPI twitchApi, int checkIntervalSeconds = 60, int queryCount = 25, string clientId = "")
         {
+            twitchAPI = twitchApi;
             CheckIntervalSeconds = checkIntervalSeconds;
             QueryCount = queryCount;
             _followerServiceTimer.Elapsed += _followerServiceTimerElapsed;
@@ -58,13 +58,13 @@ namespace TwitchLib.Services
 
             if (ChannelIdentifier == Enums.ChannelIdentifierType.Username)
             {
-                var response = await TwitchAPI.Follows.v3.GetFollowersAsync(ChannelData, QueryCount);
+                var response = await twitchAPI.Follows.V3.GetFollowersAsync(ChannelData, QueryCount);
                 foreach (var follower in response.Followers)
                     ActiveCache.Add(follower);
             }
             else
             {
-                var response = await TwitchAPI.Channels.v5.GetChannelFollowersAsync(ChannelData, QueryCount);
+                var response = await twitchAPI.Channels.V5.GetChannelFollowersAsync(ChannelData, QueryCount);
                 foreach (var follower in response.Follows)
                     ActiveCache.Add(follower);
             }
@@ -106,13 +106,13 @@ namespace TwitchLib.Services
             {
                 if (ChannelIdentifier == Enums.ChannelIdentifierType.Username)
                 {
-                    var followers = await TwitchAPI.Follows.v3.GetFollowersAsync(ChannelData, QueryCount);
+                    var followers = await twitchAPI.Follows.V3.GetFollowersAsync(ChannelData, QueryCount);
                     foreach (var follower in followers.Followers)
                         mostRecentFollowers.Add(follower);
                 }
                 else
                 {
-                    var followers = await TwitchAPI.Channels.v5.GetChannelFollowersAsync(ChannelData, QueryCount);
+                    var followers = await twitchAPI.Channels.V5.GetChannelFollowersAsync(ChannelData, QueryCount);
                     foreach (var follower in followers.Follows)
                         mostRecentFollowers.Add(follower);
                 }

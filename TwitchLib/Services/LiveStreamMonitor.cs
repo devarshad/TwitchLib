@@ -11,6 +11,7 @@
     using Exceptions.API;
     using Exceptions.Services;
     #endregion
+
     /// <summary>Service that allows customizability and subscribing to detection of channels going online/offline.</summary>
     public class LiveStreamMonitor
     {
@@ -26,11 +27,12 @@
         /// <summary>Property representing Twitch channels service is monitoring.</summary>
         public List<string> Channels { get { return _channels; } protected set { _channels = value; } }
         /// <summary>Property representing application client Id, also updates it in TwitchApi.</summary>
-        public string ClientId { get { return _clientId; } set { _clientId = value; TwitchAPI.Settings.ClientId = value; } }
+        public string ClientId { get { return _clientId; } set { _clientId = value; twitchAPI.ClientId = value; } }
         /// <summary>Property representing interval between Twitch Api calls, in seconds. Recommended: 60</summary>
         public int CheckIntervalSeconds { get { return _checkIntervalSeconds; } set { _checkIntervalSeconds = value; _streamMonitorTimer.Interval = value * 1000; } }
         /// <summary>Property representing whether streams are represented by usernames or userids</summary>
         public StreamIdentifierType IdentifierType { get { return _identifierType; } protected set { _identifierType = value; } }
+        private readonly ITwitchAPI twitchAPI;
         #endregion
         #region EVENTS
         /// <summary>Event fires when Stream goes online</summary>
@@ -48,8 +50,9 @@
         /// <exception cref="BadResourceException">If channel is invalid, an InvalidChannelException will be thrown.</exception>
         /// <param name="checkIntervalSeconds">Param representing number of seconds between calls to Twitch Api.</param>
         /// <param name="clientId">Optional param representing Twitch Api-required application client id, not required if already set.</param>
-        public LiveStreamMonitor(int checkIntervalSeconds = 60, string clientId = "")
+        public LiveStreamMonitor(ITwitchAPI twitchApi, int checkIntervalSeconds = 60, string clientId = "")
         {
+            twitchAPI = twitchApi;
             CheckIntervalSeconds = checkIntervalSeconds;
             _streamMonitorTimer.Elapsed += _streamMonitorTimerElapsed;
             if (clientId != "")
@@ -129,7 +132,7 @@
                 case StreamIdentifierType.Usernames:
                     try
                     {
-                        var resp = await TwitchAPI.Streams.v3.GetStreamAsync(channel);
+                        var resp = await twitchAPI.Streams.V3.GetStreamAsync(channel);
                         if (resp == null || resp.Stream == null)
                             return false;
                         else
@@ -142,7 +145,7 @@
                 case StreamIdentifierType.UserIds:
                     try
                     {
-                        var resp = await TwitchAPI.Streams.v5.GetStreamByUserAsync(channel);
+                        var resp = await twitchAPI.Streams.V5.GetStreamByUserAsync(channel);
                         if (resp == null || resp.Stream == null)
                             return false;
                         else
